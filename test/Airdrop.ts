@@ -1,67 +1,48 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { Airdrop, ERC } from "../typechain-types";
-import { StandardMerkleTree } from "@openzeppelin/merkle-tree";
+import { MerkleTree } from "merkletreejs";
+import keccak256 from "keccak256";
 
 describe("Airdrop Contract", function () {
-  let airdrop: Airdrop;
-  let token: ERC;
+  let airdrop: any;
+  let token: any;
   let owner: any;
   let addr1: any;
   let addr2: any;
   let addr3: any;
-  let merkleTree: StandardMerkleTree<string[]>;
-  let rootHash: string;
 
-  const airdropAmount = ethers.parseUnits("100", 18);
+  let merkleTree: MerkleTree;
+  let merkleRoot: string;
 
-  before(async function () {
+  beforeEach(async function () {
     [owner, addr1, addr2, addr3] = await ethers.getSigners();
 
-    // Deploy the ERC token contract
-    const ERC = await ethers.getContractFactory("ERC");
-    token = (await ERC.deploy()) as ERC;
-
-    // Ensure the token is deployed correctly
-    if (!token.address) {
-      throw new Error("Token contract failed to deploy or address is null");
-    }
-    console.log("ERC Token Address:", token.address);
-
-    // Create Merkle Tree for the airdrop using StandardMerkleTree
-    const elements = [
-      [addr1.address, airdropAmount.toString()],
-      [addr2.address, airdropAmount.toString()],
+    const airdropData = [
+      { address: addr1.address, amount: 100 },
+      { address: addr2.address, amount: 200 },
+      { address: addr3.address, amount: 300 },
     ];
-    merkleTree = StandardMerkleTree.of(elements, ["address", "uint256"]);
-    rootHash = merkleTree.root;
 
-    // Ensure the Merkle root is valid
-    if (!rootHash) {
-      throw new Error("Failed to generate a valid Merkle root");
-    }
-    console.log("Merkle Root:", rootHash);
+    const ERC = await ethers.getContractFactory("ERC");
+    token = await ERC.deploy();
 
-    // Deploy Airdrop contract using the token address
+    const leafNodes = airdropData.map((item) =>
+      keccak256(
+        ethers.AbiCoder.defaultAbiCoder().encode(
+          ["address", "uint256"],
+          [item.address, item.amount]
+        )
+      )
+    );
+    merkleTree = new MerkleTree(leafNodes, keccak256, { sortPairs: true });
+    merkleRoot = merkleTree.getHexRoot();
+
     const Airdrop = await ethers.getContractFactory("Airdrop");
-    airdrop = (await Airdrop.deploy(token.address, rootHash)) as Airdrop;
-
-    // Ensure the airdrop contract is deployed correctly
-    if (!airdrop.address) {
-      throw new Error("Airdrop contract failed to deploy or address is null");
-    }
-    console.log("Airdrop Contract Address:", airdrop.address);
-
-    // Transfer tokens to the airdrop contract
-    await token.transfer(airdrop.address, ethers.parseUnits("500", 18));
+    airdrop = await Airdrop.deploy(token, merkleRoot);
   });
 
-  describe("Deployment", function () {
-    it("Should set the right token and merkle root", async function () {
-      expect(await airdrop.token()).to.equal(token.address);
-      expect(await airdrop.merkleRoot()).to.equal(rootHash);
-    });
+  it("Should set the correct token address and Merkle root", async function () {
+    expect(await airdrop.token()).to.equal(token);
+    expect(await airdrop.merkleRoot()).to.equal(merkleRoot);
   });
-
-  // Additional test cases...
 });

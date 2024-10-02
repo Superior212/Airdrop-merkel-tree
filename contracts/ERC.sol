@@ -13,6 +13,6 @@ contract ERC is ERC20 {
 
     function mint(uint256 _amount) external {
         require(msg.sender == owner, "you are not owner");
-        _mint(msg.sender, _amount * 1e18);
+        _mint(msg.sender, _amount);
     }
 }

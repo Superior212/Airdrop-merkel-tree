@@ -8,7 +8,7 @@ const AirdropModule = buildModule("AirdropModule", (m) => {
   // Define the parameters for the contract deployment
   const tokenAddress = m.getParameter(
     "tokenAddress",
-    "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+    "0x25759b9E5a6f3789852072F2B8fea19C116fEd27"
   );
   const merkleRoot = m.getParameter("merkleRoot", MerkleRoot);
 
